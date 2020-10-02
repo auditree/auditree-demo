@@ -1,0 +1,77 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: auditree-run
+spec:
+  inputs:
+    resources:
+        -
+          name: git-xylon-config
+          type: git
+  steps:
+    - name: base-config
+      image: alpine
+      imagePullPolicy: Always
+      script: |
+        #!/bin/sh
+        apk add --no-cache bash git
+        git config --global user.email "auditree-demo@contrived-example.com"
+        git config --global user.name "Auditree"
+      resources:
+        inputs:
+          - name: auditree-tekton-example
+            type: git
+    - name: build-venv
+      image: python:3.7-alpine
+      imagePullPolicy: Always
+      script: |
+        #!/bin/sh
+        cd /workspace
+        python3.7 -m venv venv
+        . venv/bin/activate
+        pip install -q --upgrade pip setuptools
+        pip install -q . --upgrade --upgrade-strategy eager
+    -
+      name: fetch
+      image: python:3.7-alpine
+      imagePullPolicy: Always
+      env:
+      -
+        name: TMPDIR
+        value: $(inputs.params.pathToTempDir)
+      script: |
+        #!/bin/sh
+        apk add --no-cache bash git >> /dev/null
+        . $(inputs.params.pathToCustomerEnv)/bin/activate
+        cd $(inputs.params.pathToCustomerWorkspace)
+        echo compliance --fetch --evidence full-remote --notify stdout -C auditree.json -v --creds-path=/home/credentials
+        compliance --fetch --evidence full-remote --notify stdout -C auditree.json -v --creds-path=/home/credentials
+        echo Fetching complete
+      volumeMounts:
+      - mountPath: /home
+        name: internal-storage
+    -
+      name: check
+      image: python:3.7-alpine
+      imagePullPolicy: Always
+      env:
+      -
+        name: TMPDIR
+        value: $(inputs.params.pathToTempDir)
+      -
+        name: PROFILE_ID
+        valueFrom:
+            configMapKeyRef:
+              name: auditree-runtime
+              key: profile
+      script: |
+        #!/bin/sh
+        apk add --no-cache bash git >> /dev/null
+        . $(inputs.params.pathToCustomerEnv)/bin/activate
+        cd $(inputs.params.pathToCustomerWorkspace)
+        echo compliance --check $PROFILE_ID --evidence full-remote --notify stdout -C auditree.json -v -s --creds-path=/home/credentials
+        compliance --check ${PROFILE_ID} --evidence full-remote --notify stdout -C auditree.json -v -s --creds-path=/home/credentials
+        echo Checks complete
+      volumeMounts:
+      - mountPath: /home
+        name: internal-storage

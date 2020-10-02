@@ -1,0 +1,12 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Pipeline
+metadata:
+  name: auditree-run
+spec:
+  resources:
+    - name: auditree-tekton-example
+      type: git
+  tasks:
+  - name: auditree-run
+    taskRef:
+      name: auditree-run
