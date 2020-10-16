@@ -1,4 +1,4 @@
-# Audtiree Examples
+# Auditree Examples
 
 - Example auditree config
 - Example tekton pipelines
